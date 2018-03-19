@@ -1,7 +1,7 @@
 {
   "name": "ac-vue-app",
+  "description": "Down-to-earth vue component and application development",
   "version": "0.0.0-alpha",
-  "private": true,
   "engines": {
     "node": ">=8"
   },
