@@ -1,0 +1,80 @@
+#!/usr/bin/env node
+
+var fs = require('fs');
+var path = require('path');
+var glob = require('glob');
+var mkdirp = require('mkdirp');
+var Twig = require('twig');
+var twig = Twig.twig;
+
+var argv = require('minimist')(process.argv.slice(2));
+var cwd = argv.cwd || process.env.PWD || process.cwd();
+
+var iFilename = argv._[0];
+var oFilename = argv._[1];
+var ext = '.twig';
+
+if(argv.cwd && iFilename.indexOf('./') === 0) {
+  iFilename = __dirname + '/..' + iFilename.slice(1);
+}
+
+// console.log('rendering...', iFilename, oFilename, argv, process.cwd());
+
+fs.stat(iFilename, function(err, stat){
+  if(err) return console.error(err.stack||err);
+  if(stat.isDirectory()) {
+    // Folder
+    glob(iFilename+'/**/*'+ext, {
+      dot: true
+    }, function(err, files){
+      if(err) return console.error(err.stack||err);
+
+      renderNext();
+
+      function renderNext() {
+        if(files.length === 0) return done();
+        var filename = files.shift();
+        Twig.renderFile(filename, getContext(filename), function(err, html) {
+          if(err) return console.error(err.stack||err);
+          var _ofilename = oFilename+''+filename.slice(iFilename.length, -1*ext.length);
+          var _ofolder = path.dirname(_ofilename);
+          fs.exists(_ofilename, function(exists){
+            if(exists && !argv.force) {
+              //
+              console.log('  Skip file "%s", already exists: "%s"', filename, _ofilename);
+              return renderNext();
+            }
+            mkdirp(_ofolder, function(err){
+              if(err) return console.error(err.stack||err);
+              fs.writeFile(_ofilename, html, function(err){
+                if(err) return console.error(err.stack||err);
+                console.log('  File "%s" witten to "%s"', filename, _ofilename);
+                renderNext();
+              });
+            });
+          });
+        });
+      }
+
+      function done(){
+        console.log('OK');
+      }
+    });
+  } else {
+    // File
+    Twig.renderFile(iFilename, getContext(iFilename), function(err, html) {
+      if(err) return console.error(err.stack||err);
+      fs.writeFile(oFilename, html, function(err){
+        if(err) return console.error(err.stack||err);
+        console.log('  File "%s" witten to "%s"', iFilename, oFilename);
+      });
+    });
+  }
+});
+
+function getContext(filename) {
+  var context = Object.assign({
+    foo: 'bar'
+  }, require(cwd+'/package.json'));
+  return context;
+}

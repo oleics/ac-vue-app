@@ -1,0 +1,21 @@
+
+<style>
+</style>
+
+<template>
+  <div>
+    {{name}}
+    <status></status>
+  </div>
+</template>
+
+<script>
+
+module.exports = {
+  name: '{{name}}',
+  components: {
+    'status': require('ac-vue-app'),
+  }
+};
+
+</script>

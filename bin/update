@@ -1,0 +1,74 @@
+#!/usr/bin/env node
+
+var argv = require('minimist')(process.argv.slice(2));
+var cwd = argv.cwd || process.env.PWD || process.cwd();
+// console.dir(argv);
+
+var fs = require('fs');
+var semver = require('semver');
+
+var lpkgFile = __dirname+'/../package.json';
+var pkgFile = cwd+'/package.json';
+
+var lpkg = require(lpkgFile);
+var pkg = require(pkgFile);
+
+pkg.main = './build/package/app.js';
+if(pkg.dependencies == null) pkg.dependencies = {};
+if(pkg.dependencies[lpkgFile.name] == null) pkg.dependencies[lpkg.name] = lpkg.version;
+
+if(!argv.cwd) {
+  console.log('');
+  console.log('');
+  console.log('(%s)', cwd);
+  console.log('This is %s v%s running in %s v%s', lpkg.name, lpkg.version, pkg.name, pkg.version);
+  console.log('');
+  console.log('');
+  console.log('UPDATE');
+  console.log('');
+  console.log('');
+}
+
+Promise.all([
+  'dependencies', 'devDependencies'
+].map(function(pkgDepKey){
+  return new Promise(function(resolve, reject) {
+    pkg[pkgDepKey] = makeDeps(pkg[pkgDepKey]||{}, lpkg[pkgDepKey]||{});
+    console.log('Saving %s to %s ...', pkgDepKey, pkgFile);
+    fs.writeFile(pkgFile, JSON.stringify(pkg, null, '  '), function(err){
+      if(err) return reject(err);
+      resolve();
+    });
+  });
+}))
+  .then(function(){
+    console.log('OK');
+    process.exit(0);
+  })
+  .catch(function(err){
+    console.error(err.stack||err);
+    process.exit(1);
+  })
+;
+
+function makeDeps(orig, latest) {
+  var next = {};
+  Object.keys(orig).forEach(function(key){
+    next[key] = orig[key];
+  });
+  Object.keys(latest).forEach(function(key){
+    if(semver.valid(semver.coerce(latest[key]))) {
+      if(next[key] == null || semver.gt(semver.coerce(latest[key]), semver.coerce(next[key]))) {
+        console.log('updating %s from %s to %s', key, next[key], latest[key]);
+        next[key] = latest[key];
+      } else if(semver.lt(semver.coerce(latest[key]), semver.coerce(next[key]))) {
+        console.log('! %s is newer in client: %s > %s', key, next[key], latest[key]);
+      } else {
+        console.log('both of %s are at %s (%s)', key, next[key], latest[key]);
+      }
+    } else {
+      console.log('skip: %s %s, irregular', key, latest[key]);
+    }
+  });
+  return next;
+}

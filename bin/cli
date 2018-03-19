@@ -1,0 +1,258 @@
+#!/usr/bin/env node
+
+// console.dir(process.env);
+
+var PassThrough = require('stream').PassThrough;
+var spawn = require('child_process').spawn;
+var parse = require('shell-quote').parse;
+var commandExistsSync = require('command-exists').sync;
+var fs = require('fs');
+var path = require('path');
+var optsToShell = require('../src/helper').optsToShell;
+
+var argv = require('minimist')(process.argv.slice(2));
+
+var cwd = argv.cwd || process.cwd();
+var lpkg = require(__dirname+'/../package.json');
+var pkg = require(cwd+'/package.json');
+if(!argv.cwd) {
+  console.log('');
+  console.log('');
+  console.log('(%s)', cwd);
+  console.log('This is %s v%s running in %s v%s', lpkg.name, lpkg.version, pkg.name, pkg.version);
+  console.log('');
+  console.log('');
+}
+
+var scripts = lpkg.scripts;
+
+// a limitation of npm will not allow us to mix CWD and package.json-location
+var allow = [
+  // 'compile:js:self',
+  // 'compile:js',
+  // 'compile:vue',
+  // 'compile',
+
+  // 'compile:js:self:w',
+  // 'compile:js:w',
+  // 'compile:vue:w',
+  // 'compile:watch',
+
+  'update',
+  'create',
+
+  'build:js:server',
+  'watch:js:server',
+  'build:js:browser',
+  'watch:js:browser',
+  'build:js:package',
+  'watch:js:package',
+  // 'build:js:browserify',
+  // 'watch:js:browserify',
+
+  'build:static',
+  'watch:static',
+
+  'build',
+  'watch',
+
+  'dev',
+  'start'
+];
+
+// var moreArgs = require('minimist')(argv._.slice(0));
+// var cmd = moreArgs._[0];
+// delete moreArgs._;
+// moreArgs.cwd = argv.cwd;
+// moreArgs = optsToShell(moreArgs);
+// console.log(cmd, moreArgs);
+
+var cmd = argv._[0];
+var moreArgs = argv._.slice(1);
+
+if(scripts[cmd] == null) throw new Error('Command "'+cmd+'" not found');
+if(allow.indexOf(cmd) === -1) throw new Error('Command "'+cmd+'" not allowed. Maybe use "npm run '+cmd+'"?');
+// console.log('cmd "%s" $ %s', cmd, scripts[cmd]);
+// process.exit();
+
+var queue = new Queue();
+
+queue.stream.on('data', function(buf){
+  process.stdout.write(buf);
+});
+
+queue
+  .add(scripts[cmd], moreArgs)
+.run()
+  .then(function(){
+    console.log('OK');
+  })
+  .catch(function(err){
+    console.error('ERROR');
+    console.error(err.stack||err);
+  })
+;
+
+function Queue() {
+  var queue = [];
+  var verbose = true;
+  var promise;
+  var resolve;
+  var reject;
+
+  var self; self = {
+    add: function(str, moreArgs) {
+      var job = [];
+      var env = {};
+      var parts = parse(scripts[cmd], process.env);
+      var i, len = len = parts.length, chunk;
+      if(moreArgs == null) moreArgs = [];
+      for(i=0; i<len; i++) {
+        chunk = parts[i];
+        if(chunk instanceof String || typeof chunk === 'string') {
+          if(job.length === 0)  {
+            // env vars first?
+            if(chunk.indexOf('=') !== -1) {
+              env = Object.assign(env, parseEnvVars(chunk));
+            } else {
+              job.push(chunk);
+            }
+          } else {
+            job.push(chunk);
+          }
+        } else if(chunk.op != null) {
+          queue.push({
+            env: env,
+            job: job,
+            moreArgs: moreArgs.slice(0),
+          });
+          queue.push(chunk.op);
+          job = [];
+          env = {};
+        } else if(chunk.comment != null) {
+        }
+      }
+      queue.push({
+        env: env,
+        job: job,
+        moreArgs: moreArgs.slice(0),
+      });
+      return self;
+    },
+
+    run: function() {
+      if(promise) return promise;
+      promise = new Promise(function(_resolve, _reject) {
+        resolve = _resolve;
+        reject = _reject;
+      });
+      dequeue();
+      return promise;
+    },
+
+    stream: new PassThrough(),
+  };
+
+  function dequeue() {
+    // console.dir(queue);
+    var item = queue.shift();
+
+    if(item == null) {
+      self.stream.end();
+      return resolve();
+    }
+
+    if(typeof item === 'string') {
+      // operator
+      // if(verbose) self.stream.write('\nop('+item+')');
+      if(item === '&&') {
+        return dequeue();
+      } else {
+        return reject(new Error('Unkown operator "'+item+'"'));
+      }
+    } else {
+      if(verbose) self.stream.write('\n$ '+item.job.join(' ')+'\n');
+      var runner = CmdRunner(item.job, item.moreArgs, {
+        cwd: __dirname+'/..',
+        env: Object.assign({}, process.env, item.env),
+      });
+      runner.stream.on('data', function(buf){
+        self.stream.write(buf);
+      });
+      runner.stream.once('end', function(buf){
+        if(buf) self.stream.write(buf);
+        dequeue();
+      });
+      runner.stream.once('error', function(err){
+        reject(err);
+      });
+    }
+  }
+
+  return self;
+}
+
+function parseEnvVars(str) {
+  var res = {};
+  str = str.split(' ');
+  for(var i=0, len=str.length, c; i<len; i++) {
+    c = str[i].trim().split('=', 2);
+    res[c[0]] = c[1];
+  }
+  return res;
+}
+
+function CmdRunner(str, moreArgs, options, shell) {
+  var stream = new PassThrough();
+
+  var d = parseCmdStr(str, shell);
+  var cp = spawn(d.cmd, d.args.concat(moreArgs||[]), options);
+
+  cp.once('error', function(err){
+    stream.emit('error', err);
+  });
+  cp.stdin.once('error', function(err){
+    stream.emit('error', err);
+  });
+  cp.stdout.once('error', function(err){
+    stream.emit('error', err);
+  });
+
+  cp.stdout.pipe(stream);
+  cp.stderr.pipe(stream);
+
+  var runner = {
+    stream: stream,
+  };
+
+  return runner;
+}
+
+function parseCmdStr(str, shell) {
+  var shellArgs = {};
+
+  var args = str.split ? str.split(' ') : str.slice(0);
+  var cmd = shell ? shell : args.shift();
+  if(shellArgs[shell]) {
+    args.push(args.splice(0).join(' '));
+    args.unshift('-c');
+  }
+
+  if(!commandExistsSync(cmd)) {
+    var r = path.resolve(__dirname+'/../node_modules/.bin/'+cmd);
+    if(r && fs.existsSync(r)) {
+      console.log(r);
+      cmd = r;
+    } else {
+      args.unshift(cmd);
+      cmd = 'npx';
+    }
+  }
+
+  // console.log('cmd %s, args %j', cmd, args);
+
+  return {
+    cmd: cmd,
+    args: args
+  };
+}

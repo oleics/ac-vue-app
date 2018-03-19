@@ -1,0 +1,45 @@
+#!/usr/bin/env node
+
+var spawn = require('child_process').spawn;
+var watch = require('watch');
+var optsToShell = require('../src/helper').optsToShell;
+var argv = require('minimist')(process.argv.slice(2));
+
+var all = argv._.slice(0);
+var moreArgs = require('minimist')(all);
+all = moreArgs._.slice(0);
+delete moreArgs._;
+moreArgs.cwd = argv.cwd;
+moreArgs = optsToShell(moreArgs);
+
+// console.dir(argv);
+// console.dir(all);
+// console.dir(moreArgs);
+// process.exit();
+
+if(argv.watch) {
+  watch.watchTree(argv.watch, function(){
+    runAll(all, moreArgs);
+  });
+} else {
+  runAll(all, moreArgs);
+}
+
+function runAll(all, moreArgs) {
+  for(var i=0, len = all.length, chunk; i<len; i++) {
+    chunk = all[i].split(' ');
+    run(chunk[0], chunk.slice(1).concat(moreArgs));
+  }
+}
+
+function run(cmd, args) {
+  // console.log(cmd, args);
+  var cp = spawn(cmd, args, {
+    cwd: process.cwd(),
+    env: Object.assign({}, process.env, {
+      PWD: argv.cwd,
+    }),
+  });
+  cp.stdout.pipe(process.stdout);
+  cp.stderr.pipe(process.stderr);
+}
