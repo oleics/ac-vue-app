@@ -43,7 +43,7 @@ function createConfig(target, filepath, source, optimizeSSR) {
         path.join(__dirname, 'node_modules'),
       ],
       alias: {
-        'ac-sr': path.join(__dirname, 'src/save-require.js'),
+        'ac-sr': path.join(__dirname, 'src/safe-require.js'),
         '__app__': appSource,
       }
     },
