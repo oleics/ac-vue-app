@@ -4,18 +4,20 @@ var webpack = require('webpack');
 var nodeExternals = require('webpack-node-externals');
 var BabelPresetEnv = require('babel-preset-env');
 var BabelPluginTransformVueJsxPlugin = require('babel-plugin-transform-vue-jsx');
+var UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 
 var argv = require('minimist')(require('minimist')(process.argv.slice(2))._);
 var cwd = argv.cwd || process.env.PWD || process.cwd();
 
 module.exports = createConfig;
 
-function createConfig(target, filepath, source, optimizeSSR) {
+function createConfig(pkg, target, filepath, source, optimizeSSR) {
 
   target = target || 'web';
   optimizeSSR = optimizeSSR == null ? true : !!optimizeSSR;
 
   var appSource = path.join(cwd, 'src/app.vue');
+
   console.log('webpack config');
   console.log('%s', source);
   console.log('  __app__ %s', appSource);
@@ -45,6 +47,7 @@ function createConfig(target, filepath, source, optimizeSSR) {
       alias: {
         'ac-sr': path.join(__dirname, 'src/safe-require.js'),
         '__app__': appSource,
+        'vue': path.join(__dirname+'/node_modules/vue/dist/vue.esm.js'),
       }
     },
 
@@ -103,6 +106,12 @@ function createConfig(target, filepath, source, optimizeSSR) {
       //   'navigator': 'navigator'
       // }));
     }
+
+    plugins.push(new webpack.DefinePlugin({
+      '__pkg_name__': JSON.stringify(pkg.name),
+      '__pkg_version__': JSON.stringify(pkg.version),
+    }));
+
     return plugins;
   }
 

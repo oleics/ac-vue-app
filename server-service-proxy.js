@@ -13,14 +13,20 @@ function createServiceProxy(app, p, mainUrl) {
   ReverseProxy(app, p);
 
   return {
-    getServices: function(postfix){
+    getServices: function(postfix, hostUrl){
       var servicesPublic = {};
       Object.keys(services).forEach(function(name){
-        servicesPublic[name] = mainUrl+'/'+encodeURIComponent(name)+(postfix==null?'':postfix);
+        servicesPublic[name] = {
+          url: (hostUrl||mainUrl)+'/'+encodeURIComponent(name)+(postfix==null?'':postfix),
+          home: (hostUrl||mainUrl)+'/'+encodeURIComponent(name),
+        };
       });
       var unavailablePublic = {};
       Object.keys(unavailable).forEach(function(name){
-        unavailablePublic[name] = mainUrl+'/'+encodeURIComponent(name)+(postfix==null?'':postfix);
+        unavailablePublic[name] = {
+          url: (hostUrl||mainUrl)+'/'+encodeURIComponent(name)+(postfix==null?'':postfix),
+          home: (hostUrl||mainUrl)+'/'+encodeURIComponent(name),
+        };
       });
       return {
         available: servicesPublic,

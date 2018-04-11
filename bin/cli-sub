@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+var fs = require('fs');
 var spawn = require('child_process').spawn;
 var watch = require('watch');
 var optsToShell = require('../src/helper').optsToShell;
@@ -18,9 +19,20 @@ moreArgs = optsToShell(moreArgs);
 // process.exit();
 
 if(argv.watch) {
-  watch.watchTree(argv.watch, function(){
-    runAll(all, moreArgs);
-  });
+  if(typeof argv.watch === 'string') {
+    watch.watchTree(argv.watch, function(){
+      runAll(all, moreArgs);
+    });
+  } else {
+    // multiple
+    argv.watch.filter(function(p){
+      return fs.existsSync(p);
+    }).forEach(function(p){
+      watch.watchTree(p, function(){
+        runAll(all, moreArgs);
+      });
+    });
+  }
 } else {
   runAll(all, moreArgs);
 }

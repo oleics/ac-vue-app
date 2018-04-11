@@ -3,11 +3,13 @@ var fs = require('fs');
 var http = require('http');
 var express = require('express');
 var createServiceProxy = require('./server-service-proxy');
+var createRelay = require('./server-relay');
 var createVueRenderer = require('./server-vue-renderer');
 
-var argv = require('minimist')(process.argv.slice(2));
+var shared = require('./shared');
+var argv = shared.argv;
+var cwd = shared.cwd;
 
-var cwd = argv.cwd || process.env.PWD || process.cwd();
 var lpkg = require(__dirname+'/package.json');
 var pkg = require(cwd+'/package.json');
 
@@ -20,7 +22,7 @@ Promise.resolve({
   pkg: pkg,
 })
   .then(runMainOrLeafServer)
-  .then(runApp)
+  .then(createAndRunApp)
   .then(function(ctx){
     console.log('OK up and running');
   })
@@ -92,29 +94,40 @@ function getServerUrl(server) {
 
 //
 
-function runApp(ctx) {
+function createAndRunApp(ctx) {
   var app = express();
   app.enable('strict routing');
   app.disable('x-powered-by');
+
+  app.set('view engine', 'twig');
+  app.set('views', __dirname+'/src/app/templates/browser');
 
   // reverse proxy services
   var serviceProxyPath = '/_service';
   var serviceProxy = createServiceProxy(app, serviceProxyPath, getMainServerUrl(ctx));
   app.get(serviceProxyPath, function(req, res, next){
+    var hostUrl = req.protocol+'://'+req.headers.host;
     var defaultServices = {};
-    defaultServices[ctx.lpkg.name] = 'http://'+req.headers.host+serviceProxyPath;
+    defaultServices[ctx.lpkg.name] = {
+      url: hostUrl+serviceProxyPath,
+      home: hostUrl,
+    };
+    console.log(req.protocol);
     res.json({
       env: process.env.NODE_ENV || 'development',
       app: {
         name: ctx.pkg.name,
         version: ctx.pkg.version,
-        url: 'http://'+req.headers.host+''+(ctx.pkg.name !== ctx.lpkg.name ? '/'+ctx.pkg.name : ''),
+        url: hostUrl+''+(ctx.pkg.name !== ctx.lpkg.name ? '/'+ctx.pkg.name : ''),
       },
       services: Object.assign({
         defaults: defaultServices,
-      }, serviceProxy.getServices(serviceProxyPath)),
+      }, serviceProxy.getServices(serviceProxyPath, hostUrl)),
     });
   });
+
+  // reverse proxy anything
+  createRelay(app);
 
   app.use(function(req, res, next){
     console.log(req.method, req.url);

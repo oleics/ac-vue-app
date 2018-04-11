@@ -18,6 +18,7 @@
     "linker-self": "npm run linker -- --link-self",
     "update": "./bin/update --cwd $PWD",
     "create": "./bin/rendertemplate ./src/app/templates/package $PWD && ./bin/update --cwd $PWD",
+    "build:babel": "npx babel ./src -d ./lib",
     "build:js:server": "npx webpack --config ./webpack.config.server.js",
     "watch:js:server": "npx webpack --config ./webpack.config.server.js --watch",
     "build:js:browser": "npx webpack --config ./webpack.config.browser.js",
@@ -26,8 +27,8 @@
     "watch:js:package": "npx webpack --config ./webpack.config.package.js --watch",
     "build:js:browserify": "browserify --debug -g envify -t vueify -t [ babelify --presets [ env ] --plugins [ transform-vue-jsx ] ] -p [ minifyify --map app.js.map --output $PWD/build/browser/app.js.map ] --require ./src/safe-require:ac-sr --require $PWD/src/app.vue:__app__ --require ./src/app/app-browser.js ./src/app/app-browser.js -o $PWD/build/browser/app.js -v",
     "watch:js:browserify": "watchify --debug -g envify -t vueify -t [ babelify --presets [ env ] --plugins [ transform-vue-jsx ] ] -p [ minifyify --map app.js.map --output $PWD/build/browser/app.js.map ] --require ./src/safe-require:ac-sr --require $PWD/src/app.vue:__app__ --require ./src/app/app-browser.js ./src/app/app-browser.js -o $PWD/build/browser/app.js -v",
-    "build:static": "./bin/rendertemplate ./src/app/templates/browser $PWD/build/browser --force",
-    "watch:static": "./bin/cli-sub --cwd $PWD --watch ./src/app/templates/browser -- './bin/cli build:static'",
+    "build:static": "./bin/rendertemplate ./src/app/templates/browser $PWD/build/browser --force && ./bin/rendertemplate $PWD/src/templates $PWD/build/browser --force",
+    "watch:static": "./bin/cli-sub --cwd $PWD --watch ./src/app/templates/browser --watch $PWD/src/templates -- './bin/cli build:static'",
     "build": "mkdirp build && NODE_ENV=production ./bin/cli-sub --cwd $PWD -- './bin/cli build:js:server' './bin/cli build:js:browser' './bin/cli build:js:package' './bin/cli build:static'",
     "watch": "mkdirp build && ./bin/cli-sub --cwd $PWD -- './bin/cli watch:js:server' './bin/cli watch:js:browser' './bin/cli watch:js:package' './bin/cli watch:static'",
     "dev": "./bin/cli-sub --cwd $PWD -- './bin/cli watch' './bin/cli start'",
@@ -46,7 +47,6 @@
   "dependencies": {
     "ac-aj": "0.0.0-alpha.0",
     "ac-node-modules": "github:oleics/ac-node-modules",
-    "bootstrap": "^4.0.0",
     "command-exists": "^1.2.2",
     "dottie": "^2.0.0",
     "eventemitter2": "^5.0.1",
@@ -60,8 +60,7 @@
     "vue": "^2.5.16",
     "vue-async-computed": "^3.3.1",
     "vue-server-renderer": "^2.5.16",
-    "vue-template-compiler": "^2.5.16",
-    "webmidi": "^2.0.0"
+    "vue-template-compiler": "^2.5.16"
   },
   "//peerDependencies": {
     "ac-aj": "0.0.0-alpha.0",
@@ -90,6 +89,7 @@
     "sass-loader": "^6.0.6",
     "source-map-support": "^0.5.4",
     "twig": "^1.10.5",
+    "uglifyjs-webpack-plugin": "^1.2.4",
     "vue-loader": "^14.2.1",
     "vueify": "^9.4.1",
     "watch": "^1.0.2",

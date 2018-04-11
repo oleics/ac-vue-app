@@ -2,7 +2,13 @@
 var Vue = require('ac-sr')(require('vue'));
 Vue.use(require('vue-async-computed'));
 
-var AppWrapper = require('./app-wrapper');
+Vue.component('action', require('ac-sr')(require('./components/action/action.vue')));
+Vue.component('app', require('ac-sr')(require('./app-package.js')));
+
+console.log(__pkg_name__, __pkg_version__);
+console.log(Object.keys(Vue.options.components));
+
+// var AppWrapper = require('./app-wrapper');
 
 // interface
 
@@ -10,22 +16,27 @@ module.exports = createApp;
 
 function createApp() {
   return new Vue({
-    data: function data() {
-      return {
-        context: {}
-      };
-    },
-
-    render: function render(createElement) {
-      return createElement(AppWrapper);
-    },
-
-    updated: function updated() {},
-
-    mounted: function mounted() {
-      this.$children.forEach(function (child) {
-        child.setContext && child.setContext(this.context);
-      }, this);
+    render: function render(h) {
+      return h(
+        'div',
+        {
+          attrs: {
+            id: __pkg_name__
+          }
+        },
+        [
+          h(
+            'action',
+            [
+              h(
+                'app',
+                this.$slots.default
+              )
+            ]
+          )
+        ]
+      );
+      // return h(AppWrapper, this.$slots.default);
     }
   });
 }

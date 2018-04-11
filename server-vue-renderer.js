@@ -1,12 +1,13 @@
 
 var fs = require('fs');
-var renderer = require('vue-server-renderer').createRenderer({
-  template: fs.readFileSync(__dirname+'/server-vue-renderer.html').toString()
-});
+var vueServerRenderer = require('vue-server-renderer');
 
 module.exports = createVueRenderer;
 
 function createVueRenderer(createApp) {
+  var renderer = require('vue-server-renderer').createRenderer({
+    // template: fs.readFileSync(__dirname+'/server-vue-renderer.html').toString()
+  });
 
   return middleware;
 
@@ -26,7 +27,10 @@ function createVueRenderer(createApp) {
 
     renderer.renderToString(app, ctx)
       .then(function(html){
-        res.send(html);
+        res.render('index.html.twig', {
+          html: html,
+        });
+        // res.send(html);
       })
       .catch(function(err){
         console.error(err.stack||err);

@@ -8,8 +8,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   </head>
   <body>
-    <div id="app"></div>
+    {% if html is defined and html is not empty %}
+      {{html}}
+    {% else %}
+      <div id="{{name}}"></div>
+    {% endif %}
     <script src="app.js"></script>
-    <pre>{{-dump(_context)-}}</pre>
+    <pre>{#{-dump(_context)-}#}</pre>
   </body>
 </html>
