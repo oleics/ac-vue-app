@@ -45,7 +45,7 @@
     "compile:watch": "./bin/cli-sub --cwd $PWD -- './bin/cli wp:watch' './bin/cli compile:js:self:w' './bin/cli compile:js:w'"
   },
   "dependencies": {
-    "ac-aj": "0.0.0-alpha.0",
+    "ac-aj": "0.x.x",
     "ac-node-modules": "github:oleics/ac-node-modules",
     "command-exists": "^1.2.2",
     "dottie": "^2.0.0",
