@@ -11,20 +11,19 @@
   "bin": {
     "ac-vue-app": "bin/cli"
   },
-  "main": "./build/package/app.js",
+  "main": "./build/package/app.vue.js",
   "scripts": {
     "collect-dependencies": "ac-node-modules-collect-dependencies ..",
     "linker": "ac-node-modules-linker ..",
     "linker-self": "npm run linker -- --link-self",
     "update": "./bin/update --cwd $PWD",
     "create": "./bin/rendertemplate ./src/app/templates/package $PWD && ./bin/update --cwd $PWD",
-    "build:babel": "npx babel ./src -d ./lib",
     "build:js:server": "npx webpack --config ./webpack.config.server.js",
     "watch:js:server": "npx webpack --config ./webpack.config.server.js --watch",
     "build:js:browser": "npx webpack --config ./webpack.config.browser.js",
     "watch:js:browser": "npx webpack --config ./webpack.config.browser.js --watch",
-    "build:js:package": "npx webpack --config ./webpack.config.package.js",
-    "watch:js:package": "npx webpack --config ./webpack.config.package.js --watch",
+    "build:js:package": "./bin/babel --cwd $PWD && ./bin/vuesfc --cwd $PWD",
+    "watch:js:package": "./bin/cli-sub --cwd $PWD -- './bin/babel --watch' './bin/vuesfc --watch'",
     "build:js:browserify": "browserify --debug -g envify -t vueify -t [ babelify --presets [ env ] --plugins [ transform-vue-jsx ] ] -p [ minifyify --map app.js.map --output $PWD/build/browser/app.js.map ] --require ./src/safe-require:ac-sr --require $PWD/src/app.vue:__app__ --require ./src/app/app-browser.js ./src/app/app-browser.js -o $PWD/build/browser/app.js -v",
     "watch:js:browserify": "watchify --debug -g envify -t vueify -t [ babelify --presets [ env ] --plugins [ transform-vue-jsx ] ] -p [ minifyify --map app.js.map --output $PWD/build/browser/app.js.map ] --require ./src/safe-require:ac-sr --require $PWD/src/app.vue:__app__ --require ./src/app/app-browser.js ./src/app/app-browser.js -o $PWD/build/browser/app.js -v",
     "build:static": "./bin/rendertemplate ./src/app/templates/browser $PWD/build/browser --force && ./bin/rendertemplate $PWD/src/templates $PWD/build/browser --force",

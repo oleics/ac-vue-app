@@ -1,0 +1,53 @@
+#!/usr/bin/env node
+
+var path = require('path');
+var spawn = require('child_process').spawn;
+var argv = require('minimist')(process.argv.slice(2));
+
+if(argv.cwd == null) argv.cwd = process.cwd();
+
+var ctx = {
+  cwd: argv.cwd,
+  source: path.join(argv.cwd, argv.source || 'src'),
+  target: path.join(argv.cwd, argv.target || 'build/package'),
+  watch: argv.watch,
+};
+
+Promise.resolve(ctx)
+  .then(runBabel)
+  .then(function(ctx){
+    console.log('DONE babel');
+  })
+  .catch(function(err){
+    console.error('ERROR');
+    console.error(err.stack||err);
+  })
+;
+
+function runBabel(ctx) {
+  return new Promise(function(resolve, reject) {
+    var args = [
+      ctx.source,
+      '--out-dir', ctx.target,
+      // '--copy-files',
+    ];
+    if(ctx.watch) {
+      console.log('babel will watch for changes...');
+      args.push('--watch');
+    }
+    var cp = spawn('babel', args, {
+      cwd: ctx.cwd,
+      env: process.env,
+    });
+
+    cp.stdout.pipe(process.stdout);
+    cp.stderr.pipe(process.stderr);
+
+    cp.on('close', function(code){
+      if(code) {
+        return reject('child process exited with code' + code);
+      }
+      return resolve(ctx);
+    })
+  });
+}

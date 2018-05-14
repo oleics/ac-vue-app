@@ -1,0 +1,170 @@
+#!/usr/bin/env node
+
+var fs = require('fs');
+var path = require('path');
+var glob = require('glob');
+var mkdirp = require('mkdirp');
+var watch = require('watch');
+var compiler = require('vueify').compiler;
+var argv = require('minimist')(process.argv.slice(2));
+
+if(argv.cwd == null) argv.cwd = process.cwd();
+
+var ctx = {
+  cwd: argv.cwd,
+  source: path.join(argv.cwd, argv.source || 'src'),
+  target: path.join(argv.cwd, argv.target || 'build/package'),
+  options: {
+    sourceMap: true,
+    // extractCSS: true,
+    // CSSOut: true,
+  },
+  watch: argv.watch
+};
+
+Promise.resolve(ctx)
+  .then(runGlob)
+  .then(ctx.watch ? runVueifyWatch : runVueifyAll)
+  .then(function(ctx){
+    console.log('DONE vuesfc');
+  })
+  .catch(function(err){
+    console.error('ERROR');
+    console.error(err.stack||err);
+  })
+;
+
+function runGlob(ctx) {
+  return new Promise(function(resolve, reject) {
+    glob(ctx.source+'/**/*.vue', function(err, files) {
+      if(err) return reject(err);
+      ctx.files = files;
+      resolve(ctx);
+    });
+  });
+}
+
+function runVueifyAll(ctx) {
+  return Promise.all(ctx.files.map(function(file){
+    return runVueify(Object.assign({
+    }, ctx, {
+      source: file,
+      target: sourceToTarget(file, ctx),
+      // target: replaceExt(path.join(ctx.target, path.relative(ctx.source, file)), '.js'),
+    }));
+  })).then(function(){
+    return ctx;
+  });
+}
+
+function runVueify(ctx) {
+  return new Promise(function(resolve, reject) {
+    fs.readFile(ctx.source, function(err, data){
+      if(err) return reject(err);
+
+      compiler.loadConfig();
+      if(ctx.options) {
+        compiler.applyConfig(ctx.options);
+        if(ctx.options.extractCSS && ctx.options.CSSOut) {
+          compiler.on('style', onStyle);
+        }
+      }
+
+      compiler.compile(data.toString(), ctx.source, function(err, result){
+        compiler.removeListener('style', onStyle);
+        if(err) return reject(err);
+
+        mkdirp(path.dirname(ctx.target), function(err){
+          if(err) return reject(err);
+
+          fs.writeFile(ctx.target, result, function(err){
+            if(err) return reject(err);
+
+            console.log('%s -> %s', ctx.source, ctx.target);
+            resolve(ctx);
+          });
+        });
+      });
+    });
+
+    function onStyle() {
+      console.log('onStyle', arguments);
+    }
+
+  });
+}
+
+function runVueifyWatch(ctx) {
+  return runVueifyAll(ctx)
+    .then(function(ctx) {
+      return new Promise(function(resolve, reject) {
+        var queue = [];
+        var queueRuning = false;
+
+        watch.watchTree(ctx.source, {
+          interval: 3,
+        }, function(f, curr, prev){
+          if(typeof f == 'object' && prev === null && curr === null) {
+            // Finished walking the tree
+            console.log('vuesfc watching...');
+          } else {
+            var source = f;
+            if(path.extname(source) !== '.vue') {
+              return;
+            }
+            if(prev !== null && curr.nlink === 0) {
+              var target = sourceToTarget(source, ctx);
+              fs.unlink(target, function(err){
+                if(err) reject(err);
+                console.log('removed:', target);
+              });
+            } else {
+              enqueue(source);
+            }
+          }
+        });
+
+        function enqueue(source) {
+          if(queue.indexOf(source) !== -1) return;
+          queue.push(source);
+          if(queueRuning) return;
+          queueRuning = true;
+          dequeue();
+        }
+
+        function dequeue() {
+          var source = queue.shift();
+          if(source == null) {
+            queueRuning = false;
+            return;
+          }
+          var target = sourceToTarget(source, ctx);
+          runVueify(Object.assign({}, ctx, {
+            source: source,
+            target: target,
+          }))
+            .then(function(){
+              dequeue();
+            })
+            .catch(function(err){
+              console.error('%s -> %s', source, target);
+              console.error(err.stack||err);
+              dequeue();
+            })
+          ;
+        }
+      });
+    })
+  ;
+}
+
+function sourceToTarget(file, ctx) {
+  return path.join(ctx.target, path.relative(ctx.source, file)) + '.js';
+}
+
+// function replaceExt(file, nextExt) {
+//   var ext = path.extname(file);
+//   if(!ext) return file;
+//   file = file.slice(0, file.length-ext.length)+nextExt;
+//   return file;
+// }
