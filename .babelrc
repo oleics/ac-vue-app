@@ -9,6 +9,7 @@
     "stage-3"
   ],
   "plugins": [
-    "transform-vue-jsx"
+    "transform-vue-jsx",
+    "transform-inline-environment-variables"
   ]
 }

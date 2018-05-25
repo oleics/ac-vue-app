@@ -30,6 +30,7 @@ function runBabel(ctx) {
       ctx.source,
       '--out-dir', ctx.target,
       // '--copy-files',
+      '--plugins', 'babel-plugin-transform-inline-environment-variables',
     ];
     if(ctx.watch) {
       console.log('babel will watch for changes...');

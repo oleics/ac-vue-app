@@ -4,6 +4,7 @@ var webpack = require('webpack');
 var nodeExternals = require('webpack-node-externals');
 var BabelPresetEnv = require('babel-preset-env');
 var BabelPluginTransformVueJsxPlugin = require('babel-plugin-transform-vue-jsx');
+var BabelPluginTransformInlineEnvVarsPlugin = require('babel-plugin-transform-inline-environment-variables');
 var UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 
 var argv = require('minimist')(require('minimist')(process.argv.slice(2))._);
@@ -66,6 +67,7 @@ function createConfig(pkg, target, filepath, source, optimizeSSR) {
               ],
               plugins: [
                 BabelPluginTransformVueJsxPlugin,
+                BabelPluginTransformInlineEnvVarsPlugin,
               ]
             }
           }
