@@ -3,6 +3,7 @@ var path = require('path');
 var webpack = require('webpack');
 var nodeExternals = require('webpack-node-externals');
 var BabelPresetEnv = require('babel-preset-env');
+var BabelPresetStage3 = require('babel-preset-stage-3');
 var BabelPluginTransformVueJsxPlugin = require('babel-plugin-transform-vue-jsx');
 var BabelPluginTransformInlineEnvVarsPlugin = require('babel-plugin-transform-inline-environment-variables');
 var UglifyJsPlugin = require('uglifyjs-webpack-plugin');
@@ -24,6 +25,19 @@ function createConfig(pkg, target, filepath, source, optimizeSSR) {
   console.log('  __app__ %s', appSource);
   console.log('    > %s %s', target, filepath);
   // console.log(process.argv);
+
+  var babelPresets = [
+    [
+      BabelPresetEnv,
+      {
+        'modules': false,
+        // 'targets': {
+        //   'browsers': ['> 1%', 'last 2 versions', 'not ie <= 8']
+        // }
+      }
+    ],
+    BabelPresetStage3
+  ];
 
   return {
     mode: process.env.NODE_ENV || 'development',
@@ -48,7 +62,7 @@ function createConfig(pkg, target, filepath, source, optimizeSSR) {
       alias: {
         'ac-sr': path.join(__dirname, 'src/safe-require.js'),
         '__app__': appSource,
-        'vue': path.join(__dirname+'/node_modules/vue/dist/vue.esm.js'),
+        'vue': path.join(__dirname+'/node_modules/vue/dist/vue.runtime.esm.js'),
       }
     },
 
@@ -58,13 +72,11 @@ function createConfig(pkg, target, filepath, source, optimizeSSR) {
       rules: [
         {
           test: /\.js$/,
-          exclude: /(node_modules|bower_components)/,
+          // exclude: /(node_modules|bower_components)/,
           use: {
             loader: 'babel-loader',
             options: {
-              presets: [
-                BabelPresetEnv
-              ],
+              presets: babelPresets,
               plugins: [
                 BabelPluginTransformVueJsxPlugin,
                 BabelPluginTransformInlineEnvVarsPlugin,
@@ -76,7 +88,15 @@ function createConfig(pkg, target, filepath, source, optimizeSSR) {
           test: /\.vue$/,
           loader: 'vue-loader',
           options: {
-            optimizeSSR: optimizeSSR
+            optimizeSSR: optimizeSSR,
+            // loaders: {
+            //   js: {
+            //     loader: 'babel-loader',
+            //     options: {
+            //       presets: babelPresets
+            //     }
+            //   }
+            // }
           }
         }
       ]
